@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <title>Generator Formulare</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #e8f0fe;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .card-formular {
+            background-color: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 600px;
+        }
+        .form-label {
+            font-weight: bold;
+        }
+        .btn-primary {
+            width: 100%;
+            padding: 10px;
+            font-size: 18px;
+            margin-top: 20px;
+        }
+        .title {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card-formular">
+        <h1 class="title">Generator Formulare</h1>
+        <form method="POST" action="/select-action">
+            <div class="mb-3">
+                <label for="form-select" class="form-label">Selectează un formular:</label>
+                <select class="form-select" id="form-select" name="form_name" required>
+                    <option value="" selected disabled>Alege un formular...</option>
+                    {% for form_name in form_names %}
+                        <option value="{{ form_name }}">{{ form_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Start</button>
+        </form>
+    </div>
+</body>
+</html>

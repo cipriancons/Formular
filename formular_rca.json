@@ -1,0 +1,26 @@
+[
+    {
+        "name": "nume",
+        "label": "Nume deținător",
+        "type": "text",
+        "required": true
+    },
+    {
+        "name": "nr_inmatriculare",
+        "label": "Număr de înmatriculare",
+        "type": "text",
+        "required": true
+    },
+    {
+        "name": "marca",
+        "label": "Marcă vehicul",
+        "type": "text",
+        "required": true
+    },
+    {
+        "name": "data_start",
+        "label": "Data începere asigurare",
+        "type": "date",
+        "required": true
+    }
+]

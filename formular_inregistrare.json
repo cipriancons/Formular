@@ -1,0 +1,26 @@
+[
+    {
+        "name": "nume_complet",
+        "label": "Nume complet",
+        "type": "text",
+        "required": true
+    },
+    {
+        "name": "cnp",
+        "label": "CNP",
+        "type": "text",
+        "required": true
+    },
+    {
+        "name": "adresa",
+        "label": "Adresă",
+        "type": "textarea",
+        "required": true
+    },
+    {
+        "name": "telefon",
+        "label": "Telefon",
+        "type": "tel",
+        "required": false
+    }
+]

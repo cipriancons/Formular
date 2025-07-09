@@ -1,0 +1,27 @@
+[
+    {
+        "label": "Nume",
+        "name": "nume",
+        "type": "text",
+        "required": true
+    },
+    {
+        "label": "Email",
+        "name": "email",
+        "type": "email",
+        "required": true
+    },
+    {
+        "label": "Varsta",
+        "name": "varsta",
+        "type": "number",
+        "required": false
+    },
+    {
+        "label": "Mesaj",
+        "name": "mesaj",
+        "type": "textarea",
+        "required": false
+    }
+    
+]

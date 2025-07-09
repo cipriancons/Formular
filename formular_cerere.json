@@ -1,0 +1,20 @@
+[
+    {
+        "name": "tip_cerere",
+        "label": "Tip cerere",
+        "type": "text",
+        "required": true
+    },
+    {
+        "name": "descriere",
+        "label": "Descriere cerere",
+        "type": "textarea",
+        "required": true
+    },
+    {
+        "name": "data_cerere",
+        "label": "Data cererii",
+        "type": "date",
+        "required": true
+    }
+]

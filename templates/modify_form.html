@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ form_title }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #e8f0fe;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px 0;
+        }
+        .card-formular {
+            background-color: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 800px;
+        }
+        .form-label {
+            font-weight: bold;
+        }
+        .btn-primary {
+            width: 100%;
+            padding: 10px;
+            font-size: 18px;
+        }
+        .title {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .field-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+        .field-controls {
+            display: flex;
+            gap: 5px;
+        }
+        .delete-btn {
+            color: red;
+            cursor: pointer;
+            font-size: 20px;
+        }
+        .add-field-btn {
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        .field-type-select {
+            min-width: 150px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card-formular">
+        <h1 class="title">{{ form_title }}</h1>
+        <form method="POST" action="/save-modified-form" id="modifyForm">
+            <input type="hidden" name="form_name" value="{{ form_name }}">
+            <input type="hidden" name="new_form_name" id="newFormName" value="">
+            
+            <div id="fieldsContainer">
+                {% for field in fields %}
+                <div class="field-container">
+                    <div class="flex-grow-1">
+                        <input type="text" class="form-control mb-2" name="field_label[]" value="{{ field.label }}" placeholder="Etichetă câmp" required>
+                        <div class="d-flex gap-3">
+                            <input type="text" class="form-control" name="field_name[]" value="{{ field.name }}" placeholder="Nume câmp (fără spații)" required>
+                            <select class="form-select field-type-select" name="field_type[]" required>
+                                <option value="text" {% if field.type == "text" %}selected{% endif %}>Text</option>
+                                <option value="number" {% if field.type == "number" %}selected{% endif %}>Număr</option>
+                                <option value="email" {% if field.type == "email" %}selected{% endif %}>Email</option>
+                                <option value="date" {% if field.type == "date" %}selected{% endif %}>Dată</option>
+                                <option value="checkbox" {% if field.type == "checkbox" %}selected{% endif %}>Checkbox</option>
+                                <option value="textarea" {% if field.type == "textarea" %}selected{% endif %}>Text lung</option>
+                                <option value="tel" {% if field.type == "tel" %}selected{% endif %}>Telefon</option>
+                            </select>
+                            <div class="form-check form-switch d-flex align-items-center">
+                                <input class="form-check-input" type="checkbox" name="field_required[]" value="true" id="req{{ loop.index }}" {% if field.required %}checked{% endif %}>
+                                <label class="form-check-label ms-2" for="req{{ loop.index }}">Obligatoriu</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="field-controls">
+                        <span class="delete-btn" onclick="removeField(this)">×</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <button type="button" class="btn btn-secondary add-field-btn" onclick="addField()">+ Adaugă câmp</button>
+            
+            <button type="button" class="btn btn-primary mt-3" onclick="submitWithPrompt()">Salvează modificările</button>
+        </form>
+    </div>
+
+    <script>
+        function addField() {
+            const container = document.getElementById('fieldsContainer');
+            const newField = document.createElement('div');
+            newField.className = 'field-container';
+            newField.innerHTML = `
+                <div class="flex-grow-1">
+                    <input type="text" class="form-control mb-2" name="field_label[]" placeholder="Etichetă câmp" required>
+                    <div class="d-flex gap-3">
+                        <input type="text" class="form-control" name="field_name[]" placeholder="Nume câmp (fără spații)" required>
+                        <select class="form-select field-type-select" name="field_type[]" required>
+                            <option value="text">Text</option>
+                            <option value="number">Număr</option>
+                            <option value="email">Email</option>
+                            <option value="date">Dată</option>
+                            <option value="checkbox">Checkbox</option>
+                            <option value="textarea">Text lung</option>
+                            <option value="tel">Telefon</option>
+                        </select>
+                        <div class="form-check form-switch d-flex align-items-center">
+                            <input class="form-check-input" type="checkbox" name="field_required[]" value="true" checked>
+                            <label class="form-check-label ms-2">Obligatoriu</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="field-controls">
+                    <span class="delete-btn" onclick="removeField(this)">×</span>
+                </div>
+            `;
+            container.appendChild(newField);
+        }
+        
+        function removeField(button) {
+            if (confirm('Sigur doriți să ștergeți acest câmp?')) {
+                const fieldContainer = button.closest('.field-container');
+                fieldContainer.remove();
+            }
+        }
+        
+        function submitWithPrompt() {
+            const newFormName = prompt('Introduceți numele pentru noul formular:');
+            
+            if (newFormName === null) {
+                // User clicked Cancel
+                return;
+            }
+            
+            if (newFormName.trim() === '') {
+                alert('Numele formularului nu poate fi gol!');
+                return;
+            }
+            
+            // Set the new form name in the hidden field
+            document.getElementById('newFormName').value = newFormName.trim();
+            
+            // Submit the form
+            document.getElementById('modifyForm').submit();
+        }
+    </script>
+</body>
+</html>
