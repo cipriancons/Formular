@@ -6,12 +6,30 @@ import os
 
 app = Flask(__name__)
 
-FORM_TEMPLATES = {
-    "Formular RCA": "formular_rca.json",
-    "Formular Inregistrare": "formular_inregistrare.json",
-    "Formular Cerere": "formular_cerere.json",
-    "Formular Contact": "formular_contact.json"
-}
+# File to store form templates persistently
+FORM_TEMPLATES_FILE = "form_templates.json"
+
+def load_form_templates():
+    """Load form templates from JSON file"""
+    if os.path.exists(FORM_TEMPLATES_FILE):
+        with open(FORM_TEMPLATES_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    else:
+        # Default templates
+        return {
+            "Formular RCA": "formular_rca.json",
+            "Formular Inregistrare": "formular_inregistrare.json",
+            "Formular Cerere": "formular_cerere.json",
+            "Formular Contact": "formular_contact.json"
+        }
+
+def save_form_templates(templates):
+    """Save form templates to JSON file"""
+    with open(FORM_TEMPLATES_FILE, "w", encoding="utf-8") as f:
+        json.dump(templates, f, ensure_ascii=False, indent=4)
+
+# Load templates at startup
+FORM_TEMPLATES = load_form_templates()
 
 def load_form(form_name):
     json_file = FORM_TEMPLATES.get(form_name)
@@ -92,17 +110,23 @@ def save_modified_form():
         })
     
     if new_form_name:
-        modified_name = new_form_name
+        modified_name = new_form_name.strip()
     else:
         modified_name = f"{form_name}_modified"
     
+    # Fixed: Remove "formular_" prefix, just use the name with .json extension
     safe_filename = modified_name.lower().replace(' ', '_').replace('/', '_').replace('\\', '_')
-    modified_filename = f"formular_{safe_filename}.json"
+    modified_filename = f"{safe_filename}.json"
     
+    # Save the form fields to JSON file
     with open(modified_filename, "w", encoding="utf-8") as f:
         json.dump(new_fields, f, ensure_ascii=False, indent=4)
     
+    # Update FORM_TEMPLATES dictionary
     FORM_TEMPLATES[modified_name] = modified_filename
+    
+    # Save updated templates to file so they persist
+    save_form_templates(FORM_TEMPLATES)
     
     return redirect(f"/start-form?form_name={modified_name}&action=start")
 
@@ -137,18 +161,15 @@ def submit_form():
     if not fields:
         return "Formularul nu a fost găsit.", 404
     
-
     data = {}
     for field in fields:
         if field["type"] == "checkbox":
-          
             data[field["name"]] = "Da" if request.form.get(field["name"]) else "Nu"
         else:
             data[field["name"]] = request.form.get(field["name"])
 
     save_to_db(data)
     
-
     export_to_pdf(data, form_title=form_name)
     
     return render_template("success.html")
@@ -191,18 +212,19 @@ def create_sample_forms():
         ]
     }
     
-
     for filename, fields in sample_forms.items():
         if not os.path.exists(filename):
             with open(filename, "w", encoding="utf-8") as f:
                 json.dump(fields, f, ensure_ascii=False, indent=4)
 
 if __name__ == "__main__":
-
     if not os.path.exists("templates"):
         os.makedirs("templates")
     
-
     create_sample_forms()
+    
+    # Make sure we have the initial templates saved
+    if not os.path.exists(FORM_TEMPLATES_FILE):
+        save_form_templates(FORM_TEMPLATES)
     
     app.run(debug=True)
