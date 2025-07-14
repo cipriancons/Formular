@@ -4,5 +4,7 @@
     "Formular Cerere": "formular_cerere.json",
     "Formular Contact": "formular_contact.json",
     "Contact Modificat": "contact_modificat.json",
-    "Formular Nou": "formular_nou.json"
+    "Formular Nou": "formular_nou.json",
+    "Contact Modificat_modified": "contact_modificat_modified.json",
+    "Formular Contact_modified": "formular_contact_modified.json"
 }

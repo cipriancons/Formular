@@ -10,7 +10,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
         }
         .card-formular {
@@ -34,23 +34,93 @@
             text-align: center;
             margin-bottom: 30px;
         }
+        .auth-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        .auth-btn {
+            flex: 1;
+            padding: 10px;
+            font-size: 16px;
+        }
+        .user-info {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logout-btn {
+            background: none;
+            border: none;
+            color: #dc3545;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        .welcome-text {
+            text-align: center;
+            color: #6c757d;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
     <div class="card-formular">
         <h1 class="title">Generator Formulare</h1>
-        <form method="POST" action="/select-action">
-            <div class="mb-3">
-                <label for="form-select" class="form-label">Selectează un formular:</label>
-                <select class="form-select" id="form-select" name="form_name" required>
-                    <option value="" selected disabled>Alege un formular...</option>
-                    {% for form_name in form_names %}
-                        <option value="{{ form_name }}">{{ form_name }}</option>
-                    {% endfor %}
-                </select>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        {% if session and session.username %}
+            <!-- User is logged in -->
+            <div class="user-info">
+                <span><strong>Utilizator:</strong> {{ session.username }} 
+                    {% if session.user_type == 'admin' %}<span class="badge bg-danger">Admin</span>{% endif %}
+                </span>
+                <div>
+                    {% if session.user_type == 'admin' %}
+                        <a href="/admin-dashboard" class="btn btn-sm btn-info me-2">Dashboard Admin</a>
+                    {% endif %}
+                    <a href="/logout" class="logout-btn">Logout</a>
+                </div>
             </div>
-            <button type="submit" class="btn btn-primary">Start</button>
-        </form>
+            
+            <form method="POST" action="/select-action">
+                <div class="mb-3">
+                    <label for="form-select" class="form-label">Selectează un formular:</label>
+                    <select class="form-select" id="form-select" name="form_name" required>
+                        <option value="" selected disabled>Alege un formular...</option>
+                        {% for form_name in form_names %}
+                            <option value="{{ form_name }}">{{ form_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Start</button>
+            </form>
+        {% else %}
+            <!-- User is not logged in -->
+            <div class="welcome-text">
+                <p>Bine ai venit! Pentru a continua, selectează tipul de utilizator:</p>
+            </div>
+            <div class="auth-buttons">
+                <a href="/login?type=user" class="btn btn-primary auth-btn">Utilizator Normal</a>
+                <a href="/login?type=admin" class="btn btn-secondary auth-btn">Administrator</a>
+            </div>
+            <p class="text-center text-muted">Selectează tipul de utilizator pentru a continua</p>
+        {% endif %}
     </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

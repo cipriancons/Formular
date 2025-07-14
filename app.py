@@ -1,13 +1,20 @@
-from flask import Flask, request, redirect, render_template, send_file, url_for
+from flask import Flask, request, redirect, render_template, send_file, url_for, session, flash
 import json
 import pyodbc
 from fpdf import FPDF
 import os
+from datetime import datetime
 
 app = Flask(__name__)
+app.secret_key = 'cheie-secreta'  
 
+# Configurare admin
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "admin123"
 
+# Fișiere
 FORM_TEMPLATES_FILE = "form_templates.json"
+STATISTICS_FILE = "statistics.json"
 
 def load_form_templates():
     """Load form templates from JSON file"""
@@ -26,6 +33,32 @@ def save_form_templates(templates):
     """Save form templates to JSON file"""
     with open(FORM_TEMPLATES_FILE, "w", encoding="utf-8") as f:
         json.dump(templates, f, ensure_ascii=False, indent=4)
+
+def load_statistics():
+    """Load statistics from JSON file"""
+    if os.path.exists(STATISTICS_FILE):
+        with open(STATISTICS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    else:
+        return {}
+
+def save_statistics(stats):
+    """Save statistics to JSON file"""
+    with open(STATISTICS_FILE, "w", encoding="utf-8") as f:
+        json.dump(stats, f, ensure_ascii=False, indent=4)
+
+def update_user_statistics(username):
+    """Update user statistics"""
+    stats = load_statistics()
+    if username in stats:
+        stats[username]["count"] += 1
+    else:
+        stats[username] = {
+            "count": 1,
+            "first_form_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+    stats[username]["last_form_date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    save_statistics(stats)
 
 FORM_TEMPLATES = load_form_templates()
 
@@ -64,15 +97,75 @@ def export_to_pdf(data, form_title="Formular completat", filename="formular_comp
 
 @app.route("/", methods=["GET"])
 def main_page():
-    return render_template("main_page.html", form_names=FORM_TEMPLATES.keys())
+    if 'username' in session:
+        return render_template("main_page_with_auth.html", 
+                             form_names=FORM_TEMPLATES.keys(),
+                             session=session)
+    else:
+        return render_template("main_page_with_auth.html", 
+                             form_names=FORM_TEMPLATES.keys())
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        user_type = request.form.get("user_type")
+        username = request.form.get("username")
+        
+        if user_type == "admin":
+            password = request.form.get("password")
+            if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+                session['user_type'] = 'admin'
+                session['username'] = username
+                return redirect("/admin-dashboard")
+            else:
+                flash("Username sau parolă greșite pentru admin!", "error")
+                return render_template("login.html", user_type=user_type)
+        else:  # user normal
+            if username and username.strip():
+                session['user_type'] = 'user'
+                session['username'] = username.strip()
+                return redirect("/")
+            else:
+                flash("Username-ul nu poate fi gol!", "error")
+                return render_template("login.html", user_type=user_type)
+    
+    user_type = request.args.get("type", "user")
+    return render_template("login.html", user_type=user_type)
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/")
+
+@app.route("/admin-dashboard")
+def admin_dashboard():
+    if session.get('user_type') != 'admin':
+        return redirect("/login?type=admin")
+    
+    stats = load_statistics()
+    return render_template("admin_dashboard.html", 
+                         form_names=FORM_TEMPLATES.keys(),
+                         statistics=stats)
 
 @app.route("/select-action", methods=["POST"])
 def select_action():
+    if 'username' not in session:
+        return redirect("/login?type=user")
+    
     form_name = request.form.get("form_name")
-    return render_template("action_selection.html", form_name=form_name)
+    
+    # Doar adminul poate vedea opțiunea de modificare
+    if session.get('user_type') == 'admin':
+        return render_template("action_selection.html", form_name=form_name, is_admin=True)
+    else:
+        return render_template("action_selection.html", form_name=form_name, is_admin=False)
 
 @app.route("/modify-form", methods=["GET", "POST"])
 def modify_form():
+    # Doar adminul poate modifica formulare
+    if session.get('user_type') != 'admin':
+        flash("Nu aveți permisiuni pentru a modifica formulare!", "error")
+        return redirect("/")
+    
     if request.method == "POST":
         form_name = request.form.get("form_name")
     else:  # GET
@@ -90,8 +183,13 @@ def modify_form():
 
 @app.route("/save-modified-form", methods=["POST"])
 def save_modified_form():
+    # Doar adminul poate salva modificări
+    if session.get('user_type') != 'admin':
+        flash("Nu aveți permisiuni pentru a modifica formulare!", "error")
+        return redirect("/")
+    
     form_name = request.form.get("form_name")
-    new_form_name = request.form.get("new_form_name")  # Nume nou din prompt
+    new_form_name = request.form.get("new_form_name")
     new_fields = []
 
     field_names = request.form.getlist("field_name[]")
@@ -122,10 +220,14 @@ def save_modified_form():
     
     save_form_templates(FORM_TEMPLATES)
     
-    return redirect(f"/start-form?form_name={modified_name}&action=start")
+    flash(f"Formularul '{modified_name}' a fost salvat cu succes!", "success")
+    return redirect("/admin-dashboard")
 
 @app.route("/start-form", methods=["POST", "GET"])
 def start_form():
+    if 'username' not in session:
+        return redirect("/login?type=user")
+    
     if request.method == "GET":
         form_name = request.args.get("form_name")
         action = request.args.get("action")
@@ -143,12 +245,18 @@ def start_form():
                              form_title=form_name,
                              form_name=form_name)
     elif action == "modify":
+        if session.get('user_type') != 'admin':
+            flash("Nu aveți permisiuni pentru a modifica formulare!", "error")
+            return redirect("/")
         return redirect(url_for("modify_form", form_name=form_name))
     else:
         return "Acțiune invalidă.", 400
 
 @app.route("/submit-form", methods=["POST"])
 def submit_form():
+    if 'username' not in session:
+        return redirect("/login?type=user")
+    
     form_name = request.form.get("form_name")
     fields = load_form(form_name)
     
@@ -164,12 +272,18 @@ def submit_form():
 
     save_to_db(data)
     
+    # Actualizează statisticile pentru user
+    update_user_statistics(session['username'])
+    
     export_to_pdf(data, form_title=form_name)
     
     return render_template("success.html")
 
 @app.route("/download")
 def download_pdf():
+    if 'username' not in session:
+        return redirect("/login?type=user")
+    
     pdf_path = os.path.join(os.getcwd(), "formular_completat.pdf")
     if os.path.exists(pdf_path):
         return send_file(pdf_path, as_attachment=True)
@@ -178,7 +292,18 @@ def download_pdf():
 
 @app.route("/download-success")
 def download_success():
+    if 'username' not in session:
+        return redirect("/login?type=user")
     return render_template("download_success.html")
+
+@app.route("/statistics")
+def view_statistics():
+    if session.get('user_type') != 'admin':
+        flash("Nu aveți permisiuni pentru a vedea statisticile!", "error")
+        return redirect("/")
+    
+    stats = load_statistics()
+    return render_template("statistics.html", statistics=stats)
 
 def create_sample_forms():
     sample_forms = {
@@ -219,5 +344,8 @@ if __name__ == "__main__":
     
     if not os.path.exists(FORM_TEMPLATES_FILE):
         save_form_templates(FORM_TEMPLATES)
+    
+    if not os.path.exists(STATISTICS_FILE):
+        save_statistics({})
     
     app.run(debug=True)

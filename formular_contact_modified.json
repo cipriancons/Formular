@@ -1,0 +1,26 @@
+[
+    {
+        "name": "email",
+        "label": "Adresă email",
+        "type": "email",
+        "required": true
+    },
+    {
+        "name": "mesaj",
+        "label": "Mesaj",
+        "type": "textarea",
+        "required": true
+    },
+    {
+        "name": "acord_gdpr",
+        "label": "Sunteți de acord cu prelucrarea datelor?",
+        "type": "radio",
+        "required": true
+    },
+    {
+        "name": "telefon",
+        "label": "telefon",
+        "type": "tel",
+        "required": false
+    }
+]
