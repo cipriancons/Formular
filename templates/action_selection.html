@@ -31,16 +31,35 @@
             text-align: center;
             margin-bottom: 30px;
         }
+        .user-info {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
     <div class="card-formular">
+        <div class="user-info">
+            <small class="text-muted">Conectat ca: <strong>{{ session.username }}</strong>
+            {% if session.user_type == 'admin' %}<span class="badge bg-danger ms-1">Admin</span>{% endif %}
+            </small>
+        </div>
+        
         <h1 class="title">{{ form_name }}</h1>
         <form method="POST" action="/start-form">
             <input type="hidden" name="form_name" value="{{ form_name }}">
-            <button type="submit" name="action" value="start" class="btn btn-primary btn-option">Începe</button>
-            <button type="submit" name="action" value="modify" class="btn btn-secondary btn-option">Modifică</button>
+            <button type="submit" name="action" value="start" class="btn btn-primary btn-option">Începe Formularul</button>
+            {% if is_admin %}
+                <button type="submit" name="action" value="modify" class="btn btn-secondary btn-option">Modifică Formularul</button>
+            {% endif %}
         </form>
+        
+        <div class="text-center mt-3">
+            <a href="/" class="text-decoration-none">← Înapoi la pagina principală</a>
+        </div>
     </div>
 </body>
 </html>
