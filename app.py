@@ -6,7 +6,7 @@ import os
 
 app = Flask(__name__)
 
-# File to store form templates persistently
+
 FORM_TEMPLATES_FILE = "form_templates.json"
 
 def load_form_templates():
@@ -15,7 +15,6 @@ def load_form_templates():
         with open(FORM_TEMPLATES_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     else:
-        # Default templates
         return {
             "Formular RCA": "formular_rca.json",
             "Formular Inregistrare": "formular_inregistrare.json",
@@ -28,7 +27,6 @@ def save_form_templates(templates):
     with open(FORM_TEMPLATES_FILE, "w", encoding="utf-8") as f:
         json.dump(templates, f, ensure_ascii=False, indent=4)
 
-# Load templates at startup
 FORM_TEMPLATES = load_form_templates()
 
 def load_form(form_name):
@@ -113,19 +111,15 @@ def save_modified_form():
         modified_name = new_form_name.strip()
     else:
         modified_name = f"{form_name}_modified"
-    
-    # Fixed: Remove "formular_" prefix, just use the name with .json extension
+
     safe_filename = modified_name.lower().replace(' ', '_').replace('/', '_').replace('\\', '_')
     modified_filename = f"{safe_filename}.json"
     
-    # Save the form fields to JSON file
     with open(modified_filename, "w", encoding="utf-8") as f:
         json.dump(new_fields, f, ensure_ascii=False, indent=4)
     
-    # Update FORM_TEMPLATES dictionary
     FORM_TEMPLATES[modified_name] = modified_filename
     
-    # Save updated templates to file so they persist
     save_form_templates(FORM_TEMPLATES)
     
     return redirect(f"/start-form?form_name={modified_name}&action=start")
@@ -223,7 +217,6 @@ if __name__ == "__main__":
     
     create_sample_forms()
     
-    # Make sure we have the initial templates saved
     if not os.path.exists(FORM_TEMPLATES_FILE):
         save_form_templates(FORM_TEMPLATES)
     
