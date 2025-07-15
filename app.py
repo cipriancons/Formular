@@ -104,6 +104,7 @@ def main_page():
     else:
         return render_template("main_page_with_auth.html", 
                              form_names=FORM_TEMPLATES.keys())
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -141,10 +142,47 @@ def admin_dashboard():
     if session.get('user_type') != 'admin':
         return redirect("/login?type=admin")
     
+    # Reîncarcă template-urile pentru a reflecta modificările
+    global FORM_TEMPLATES
+    FORM_TEMPLATES = load_form_templates()
+    
     stats = load_statistics()
     return render_template("admin_dashboard.html", 
                          form_names=FORM_TEMPLATES.keys(),
                          statistics=stats)
+
+@app.route("/delete-template/<form_name>", methods=["POST"])
+def delete_template(form_name):
+    """Șterge un template de formular"""
+    if session.get('user_type') != 'admin':
+        flash("Nu aveți permisiuni pentru această acțiune!", "error")
+        return redirect("/")
+    
+    global FORM_TEMPLATES
+    FORM_TEMPLATES = load_form_templates()
+    
+    if form_name in FORM_TEMPLATES:
+        json_file = FORM_TEMPLATES[form_name]
+        
+        # Șterge fișierul JSON dacă există
+        if os.path.exists(json_file):
+            try:
+                os.remove(json_file)
+            except OSError as e:
+                flash(f"Eroare la ștergerea fișierului: {e}", "error")
+                return redirect("/admin-dashboard")
+        
+        # Șterge din dicționarul de template-uri
+        del FORM_TEMPLATES[form_name]
+        
+        # Salvează modificările
+        save_form_templates(FORM_TEMPLATES)
+        
+        flash(f"Template-ul '{form_name}' a fost șters cu succes!", "success")
+    else:
+        flash("Template-ul nu a fost găsit!", "error")
+    
+    return redirect("/admin-dashboard")
 
 @app.route("/select-action", methods=["POST"])
 def select_action():
@@ -213,15 +251,74 @@ def save_modified_form():
     safe_filename = modified_name.lower().replace(' ', '_').replace('/', '_').replace('\\', '_')
     modified_filename = f"{safe_filename}.json"
     
+    # Salvează template-ul
     with open(modified_filename, "w", encoding="utf-8") as f:
         json.dump(new_fields, f, ensure_ascii=False, indent=4)
     
+    global FORM_TEMPLATES
     FORM_TEMPLATES[modified_name] = modified_filename
-    
     save_form_templates(FORM_TEMPLATES)
     
+    # Salvează calea fișierului în sesiune pentru download
+    session['template_file_path'] = modified_filename
+    session['template_name'] = modified_name
+    
     flash(f"Formularul '{modified_name}' a fost salvat cu succes!", "success")
-    return redirect("/admin-dashboard")
+    return redirect("/template-download-success")
+
+@app.route("/template-download-success")
+def template_download_success():
+    """Pagina de succes cu opțiunea de download automat"""
+    if session.get('user_type') != 'admin':
+        return redirect("/")
+    
+    template_name = session.get('template_name', 'Template')
+    return render_template("template_download_success.html", template_name=template_name)
+
+@app.route("/download-template")
+def download_template():
+    """Download template JSON"""
+    if session.get('user_type') != 'admin':
+        flash("Nu aveți permisiuni pentru această acțiune!", "error")
+        return redirect("/")
+    
+    template_file_path = session.get('template_file_path')
+    template_name = session.get('template_name', 'template')
+    
+    if not template_file_path or not os.path.exists(template_file_path):
+        flash("Fișierul template nu a fost găsit!", "error")
+        return redirect("/admin-dashboard")
+    
+    # Șterge din sesiune după download
+    session.pop('template_file_path', None)
+    session.pop('template_name', None)
+    
+    # Trimite fișierul pentru download
+    return send_file(
+        template_file_path,
+        as_attachment=True,
+        download_name=f"{template_name}.json",
+        mimetype='application/json'
+    )
+
+@app.route("/download-existing-template/<form_name>")
+def download_existing_template(form_name):
+    """Download template existent din admin dashboard"""
+    if session.get('user_type') != 'admin':
+        flash("Nu aveți permisiuni pentru această acțiune!", "error")
+        return redirect("/")
+    
+    json_file = FORM_TEMPLATES.get(form_name)
+    if not json_file or not os.path.exists(json_file):
+        flash("Template-ul nu a fost găsit!", "error")
+        return redirect("/admin-dashboard")
+    
+    return send_file(
+        json_file,
+        as_attachment=True,
+        download_name=f"{form_name}.json",
+        mimetype='application/json'
+    )
 
 @app.route("/start-form", methods=["POST", "GET"])
 def start_form():
