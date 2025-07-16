@@ -1,0 +1,32 @@
+[
+    {
+        "name": "Nume",
+        "label": "Nume",
+        "type": "text",
+        "required": true
+    },
+    {
+        "name": "Prenume",
+        "label": "Prenume",
+        "type": "text",
+        "required": true
+    },
+    {
+        "name": "cnp",
+        "label": "CNP",
+        "type": "text",
+        "required": true
+    },
+    {
+        "name": "Telefon",
+        "label": "Telefon",
+        "type": "tel",
+        "required": true
+    },
+    {
+        "name": "email",
+        "label": "email",
+        "type": "email",
+        "required": true
+    }
+]

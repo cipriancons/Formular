@@ -65,6 +65,16 @@
             color: #6c757d;
             margin-bottom: 20px;
         }
+        .create-template-info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 15px;
+            font-size: 14px;
+            color: #0c5460;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -108,6 +118,12 @@
                 </div>
                 <button type="submit" class="btn btn-primary">Start</button>
             </form>
+            
+            {% if session.user_type == 'admin' %}
+                <div class="create-template-info">
+                    <strong>💡 Admin:</strong> Poți crea template-uri noi din Dashboard-ul Admin
+                </div>
+            {% endif %}
         {% else %}
             <!-- User is not logged in -->
             <div class="welcome-text">

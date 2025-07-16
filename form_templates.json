@@ -2,5 +2,6 @@
     "Formular RCA": "formular_rca.json",
     "Formular Inregistrare": "formular_inregistrare.json",
     "Formular Cerere": "formular_cerere.json",
-    "Formular Contact": "formular_contact.json"
+    "Formular Contact": "formular_contact.json",
+    "Template Nou": "template_nou.json"
 }
