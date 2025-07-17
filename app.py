@@ -1,6 +1,5 @@
 from flask import Flask, request, redirect, render_template, send_file, url_for, session, flash
 import json
-import pyodbc
 from fpdf import FPDF
 import os
 from datetime import datetime
@@ -187,7 +186,7 @@ def admin_dashboard():
     if session.get('user_type') != 'admin':
         return redirect("/login?type=admin")
     
-    # Reîncarcă template-urile pentru a reflecta modificările
+    # Reincarca template-urile pentru a reflecta modificarile
     global FORM_TEMPLATES
     FORM_TEMPLATES = load_form_templates()
     
@@ -219,7 +218,7 @@ def save_new_template():
     
     form_name = form_name.strip()
     
-    # Verifică dacă template-ul există deja
+    # Verifica daca template-ul exista deja
     global FORM_TEMPLATES
     FORM_TEMPLATES = load_form_templates()
     
@@ -233,13 +232,13 @@ def save_new_template():
     field_types = request.form.getlist("field_type[]")
     field_requireds = request.form.getlist("field_required[]")
     
-    # Verifică dacă există cel puțin un câmp
+    # Verifica daca exista cel putin un camp
     if not field_names or not any(name.strip() for name in field_names):
         flash("Template-ul trebuie să conțină cel puțin un câmp!", "error")
         return redirect("/create-new-template")
     
     for name, label, type_, required in zip(field_names, field_labels, field_types, field_requireds):
-        if name.strip() and label.strip():  # Doar câmpurile cu nume și etichetă completate
+        if name.strip() and label.strip():  # Doar campurile cu nume si eticheta completate
             new_fields.append({
                 "name": name.strip(),
                 "label": label.strip(),
@@ -251,19 +250,19 @@ def save_new_template():
         flash("Nu s-au adăugat câmpuri valide!", "error")
         return redirect("/create-new-template")
     
-    # Creează numele fișierului
+    # Creeaza numele fisierului
     safe_filename = form_name.lower().replace(' ', '_').replace('/', '_').replace('\\', '_')
     template_filename = f"{safe_filename}.json"
     
-    # Salvează template-ul
+    # Salveaza template-ul
     with open(template_filename, "w", encoding="utf-8") as f:
         json.dump(new_fields, f, ensure_ascii=False, indent=4)
     
-    # Actualizează dicționarul de template-uri
+    # Actualizeaza dictionarul de template-uri
     FORM_TEMPLATES[form_name] = template_filename
     save_form_templates(FORM_TEMPLATES)
     
-    # Salvează calea fișierului în sesiune pentru download
+    # Salveaza calea fisierului in sesiune pentru download
     session['template_file_path'] = template_filename
     session['template_name'] = form_name
     
@@ -283,7 +282,7 @@ def delete_template(form_name):
     if form_name in FORM_TEMPLATES:
         json_file = FORM_TEMPLATES[form_name]
         
-        # Șterge fișierul JSON dacă există
+        # sterge fisierul JSON daca exista
         if os.path.exists(json_file):
             try:
                 os.remove(json_file)
@@ -291,10 +290,10 @@ def delete_template(form_name):
                 flash(f"Eroare la ștergerea fișierului: {e}", "error")
                 return redirect("/admin-dashboard")
         
-        # Șterge din dicționarul de template-uri
+        # sterge din dictionarul de template-uri
         del FORM_TEMPLATES[form_name]
         
-        # Salvează modificările
+        # Salvează modificarile
         save_form_templates(FORM_TEMPLATES)
         
         flash(f"Template-ul '{form_name}' a fost șters cu succes!", "success")
@@ -310,7 +309,7 @@ def select_action():
     
     form_name = request.form.get("form_name")
     
-    # Doar adminul poate vedea opțiunea de modificare
+    # Doar adminul poate vedea optiunea de modificare
     if session.get('user_type') == 'admin':
         return render_template("action_selection.html", form_name=form_name, is_admin=True)
     else:
@@ -340,7 +339,6 @@ def modify_form():
 
 @app.route("/save-modified-form", methods=["POST"])
 def save_modified_form():
-    # Doar adminul poate salva modificări
     if session.get('user_type') != 'admin':
         flash("Nu aveți permisiuni pentru a modifica formulare!", "error")
         return redirect("/")
@@ -370,7 +368,7 @@ def save_modified_form():
     safe_filename = modified_name.lower().replace(' ', '_').replace('/', '_').replace('\\', '_')
     modified_filename = f"{safe_filename}.json"
     
-    # Salvează template-ul
+    # Salveaza template-ul
     with open(modified_filename, "w", encoding="utf-8") as f:
         json.dump(new_fields, f, ensure_ascii=False, indent=4)
     
@@ -378,7 +376,7 @@ def save_modified_form():
     FORM_TEMPLATES[modified_name] = modified_filename
     save_form_templates(FORM_TEMPLATES)
     
-    # Salvează calea fișierului în sesiune pentru download
+    # Salveaza calea fisierului in sesiune pentru download
     session['template_file_path'] = modified_filename
     session['template_name'] = modified_name
     
@@ -408,11 +406,11 @@ def download_template():
         flash("Fișierul template nu a fost găsit!", "error")
         return redirect("/admin-dashboard")
     
-    # Șterge din sesiune după download
+    # sterge din sesiune dupa download
     session.pop('template_file_path', None)
     session.pop('template_name', None)
     
-    # Trimite fișierul pentru download
+    # Trimite fisierul pentru download
     return send_file(
         template_file_path,
         as_attachment=True,
@@ -508,9 +506,6 @@ def send_confirmation_email(email, form_name, user_data, username):
         return False
 
 def extract_email_from_data(data, fields):
-    """
-    Extrage adresa de email din datele formularului
-    """
     # Cauta campul de email in datele formularului
     for field in fields:
         if field.get('type') == 'email' or 'email' in field.get('name', '').lower():
@@ -518,7 +513,7 @@ def extract_email_from_data(data, fields):
             if email and '@' in email:
                 return email.strip()
     
-    # Daca nu gasește un camp de email, caută in toate campurile
+    # Daca nu gaseste un camp de email, cauta in toate campurile
     for key, value in data.items():
         if isinstance(value, str) and '@' in value and '.' in value:
             return value.strip()
