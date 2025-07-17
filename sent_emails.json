@@ -1,0 +1,37 @@
+[
+    {
+        "recipient": "cciprian2004@gmail.com",
+        "form_name": "Template Nou",
+        "username": "buga",
+        "sent_date": "2025-07-16 09:52:06",
+        "status": "Failed"
+    },
+    {
+        "recipient": "cciprian2004@gmail.com",
+        "form_name": "Template Nou",
+        "username": "Ciprian",
+        "sent_date": "2025-07-16 10:04:47",
+        "status": "Failed"
+    },
+    {
+        "recipient": "cciprian2004@gmail.com",
+        "form_name": "Template Nou",
+        "username": "Ciprian",
+        "sent_date": "2025-07-16 10:07:54",
+        "status": "Failed"
+    },
+    {
+        "recipient": "cciprian2004@gmail.com",
+        "form_name": "Email Test",
+        "username": "Ciprian",
+        "sent_date": "2025-07-16 10:09:16",
+        "status": "Failed"
+    },
+    {
+        "recipient": "cciprian2004@gmail.com",
+        "form_name": "Email Test",
+        "username": "Ciprian",
+        "sent_date": "2025-07-16 10:12:31",
+        "status": "Failed"
+    }
+]

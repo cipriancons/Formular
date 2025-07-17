@@ -4,12 +4,11 @@ import pyodbc
 from fpdf import FPDF
 import os
 from datetime import datetime
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email import encoders
-import ssl
+import requests
+from urllib.parse import quote
+from secret.key import URL
+import sqlite3
+from contextlib import contextmanager
 
 app = Flask(__name__)
 app.secret_key = 'cheie-secreta'  
@@ -18,18 +17,37 @@ app.secret_key = 'cheie-secreta'
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin123"
 
-# Configurare SMTP
-SMTP_CONFIG = {
-    'server': 'smtp.gmail.com',  # Pentru Gmail
-    'port': 587,                 # Port pentru TLS
-    'username': 'your-email@gmail.com',  # Înlocuiește cu emailul tău
-    'password': 'your-app-password',     # Înlocuiește cu parola de aplicație
-    'use_tls': True
-}
-
 # Fișiere
 FORM_TEMPLATES_FILE = "form_templates.json"
 STATISTICS_FILE = "statistics.json"
+
+# Constanta pentru trimitere mail sa nu apara pe git
+GOOGLE_APPS_SCRIPT_URL = URL
+
+# Configurare baza de date SQLite
+DATABASE = "form_submissions.db"
+
+@contextmanager
+def get_db_connection():
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+def init_db():
+    with get_db_connection() as conn:
+        conn.execute("""
+        CREATE TABLE IF NOT EXISTS form_submissions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            form_name TEXT NOT NULL,
+            submission_data TEXT NOT NULL,
+            submission_date TEXT NOT NULL
+        )
+        """)
+        conn.commit()
 
 def load_form_templates():
     """Load form templates from JSON file"""
@@ -75,81 +93,6 @@ def update_user_statistics(username):
     stats[username]["last_form_date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     save_statistics(stats)
 
-def send_email_confirmation(recipient_email, form_name, form_data, pdf_path=None):
-    """Trimite email de confirmare cu datele formularului"""
-    try:
-        # Creează mesajul
-        msg = MIMEMultipart()
-        msg['From'] = SMTP_CONFIG['username']
-        msg['To'] = recipient_email
-        msg['Subject'] = f"Confirmare completare formular: {form_name}"
-        
-        # Creează conținutul email-ului
-        body = f"""
-        Bună ziua,
-
-        Vă confirmăm că ați completat cu succes formularul "{form_name}".
-
-        Datele transmise:
-        """
-        
-        # Adaugă datele formularului în email
-        for key, value in form_data.items():
-            label = key.replace("_", " ").title()
-            if isinstance(value, str) and value.lower() in ['on', 'da', 'yes', 'true']:
-                value = 'Da'
-            elif isinstance(value, str) and value.lower() in ['off', 'nu', 'no', 'false']:
-                value = 'Nu'
-            body += f"\n{label}: {value}"
-        
-        body += f"""
-
-        Data completării: {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}
-
-        Vă mulțumim!
-
-        Echipa FormBuilder
-        """
-        
-        msg.attach(MIMEText(body, 'plain', 'utf-8'))
-        
-        # Atașează PDF-ul dacă există
-        if pdf_path and os.path.exists(pdf_path):
-            with open(pdf_path, "rb") as attachment:
-                part = MIMEBase('application', 'octet-stream')
-                part.set_payload(attachment.read())
-            
-            encoders.encode_base64(part)
-            part.add_header(
-                'Content-Disposition',
-                f'attachment; filename= {form_name}_completat.pdf'
-            )
-            msg.attach(part)
-        
-        # Trimite email-ul
-        if SMTP_CONFIG['use_tls']:
-            context = ssl.create_default_context()
-            with smtplib.SMTP(SMTP_CONFIG['server'], SMTP_CONFIG['port']) as server:
-                server.starttls(context=context)
-                server.login(SMTP_CONFIG['username'], SMTP_CONFIG['password'])
-                server.send_message(msg)
-        else:
-            with smtplib.SMTP_SSL(SMTP_CONFIG['server'], SMTP_CONFIG['port']) as server:
-                server.login(SMTP_CONFIG['username'], SMTP_CONFIG['password'])
-                server.send_message(msg)
-        
-        return True, "Email trimis cu succes!"
-        
-    except Exception as e:
-        return False, f"Eroare la trimiterea email-ului: {str(e)}"
-
-def has_email_field(fields):
-    """Verifică dacă formularul conține un câmp de email"""
-    for field in fields:
-        if field.get('type') == 'email' or 'email' in field.get('name', '').lower():
-            return True, field.get('name')
-    return False, None
-
 FORM_TEMPLATES = load_form_templates()
 
 def load_form(form_name):
@@ -160,8 +103,19 @@ def load_form(form_name):
     with open(json_file, "r", encoding="utf-8") as f:
         return json.load(f)
 
-def save_to_db(data):
-    pass
+def save_to_db(data, form_name):
+    """Salvează datele formularului în baza de date SQLite"""
+    with get_db_connection() as conn:
+        conn.execute(
+            "INSERT INTO form_submissions (username, form_name, submission_data, submission_date) VALUES (?, ?, ?, ?)",
+            (
+                session['username'],
+                form_name,
+                json.dumps(data, ensure_ascii=False),
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            )
+        )
+        conn.commit()
 
 def export_to_pdf(data, form_title="Formular completat", filename="formular_completat.pdf"):
     pdf = FPDF()
@@ -184,6 +138,7 @@ def export_to_pdf(data, form_title="Formular completat", filename="formular_comp
         pdf.cell(0, 10, f"{label}: {value}", ln=True)
 
     pdf.output(filename)
+
 
 @app.route("/", methods=["GET"])
 def main_page():
@@ -240,32 +195,6 @@ def admin_dashboard():
     return render_template("admin_dashboard.html", 
                          form_names=FORM_TEMPLATES.keys(),
                          statistics=stats)
-
-@app.route("/smtp-config", methods=["GET", "POST"])
-def smtp_config():
-    """Configurează setările SMTP"""
-    if session.get('user_type') != 'admin':
-        flash("Nu aveți permisiuni pentru această acțiune!", "error")
-        return redirect("/")
-    
-    if request.method == "POST":
-        global SMTP_CONFIG
-        SMTP_CONFIG.update({
-            'server': request.form.get('server', 'smtp.gmail.com'),
-            'port': int(request.form.get('port', 587)),
-            'username': request.form.get('username', ''),
-            'password': request.form.get('password', ''),
-            'use_tls': request.form.get('use_tls') == 'on'
-        })
-        
-        # Salvează configurația în fișier
-        with open('smtp_config.json', 'w') as f:
-            json.dump(SMTP_CONFIG, f, indent=4)
-        
-        flash("Configurația SMTP a fost salvată cu succes!", "success")
-        return redirect("/admin-dashboard")
-    
-    return render_template("smtp_config.html", config=SMTP_CONFIG)
 
 @app.route("/create-new-template", methods=["GET"])
 def create_new_template():
@@ -539,6 +468,63 @@ def start_form():
     else:
         return "Acțiune invalidă.", 400
 
+
+def send_confirmation_email(email, form_name, user_data, username):
+    """Send confirmation email using Google Apps Script"""
+    try:
+        email_data = {
+            "email": email,
+            "formName": form_name,
+            "userData": user_data,
+            "username": username
+        }
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        }
+        
+        response = requests.post(
+            GOOGLE_APPS_SCRIPT_URL,
+            json=email_data,
+            headers=headers,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            if result.get('success'):
+                print(f"Email sent successfully to: {email}")
+                return True
+            else:
+                print(f"Email failed: {result.get('error', 'Unknown error')}")
+        else:
+            print(f"HTTP Error: {response.status_code} - {response.text}")
+        
+        return False
+        
+    except Exception as e:
+        print(f"Error sending email: {str(e)}")
+        return False
+
+def extract_email_from_data(data, fields):
+    """
+    Extrage adresa de email din datele formularului
+    """
+    # Cauta campul de email in datele formularului
+    for field in fields:
+        if field.get('type') == 'email' or 'email' in field.get('name', '').lower():
+            email = data.get(field['name'])
+            if email and '@' in email:
+                return email.strip()
+    
+    # Daca nu gasește un camp de email, caută in toate campurile
+    for key, value in data.items():
+        if isinstance(value, str) and '@' in value and '.' in value:
+            return value.strip()
+    
+    return None
+
 @app.route("/submit-form", methods=["POST"])
 def submit_form():
     if 'username' not in session:
@@ -557,41 +543,36 @@ def submit_form():
         else:
             data[field["name"]] = request.form.get(field["name"])
 
-    save_to_db(data)
+    save_to_db(data, form_name)
     
-    # Actualizează statisticile pentru user
     update_user_statistics(session['username'])
     
-    # Generează PDF
-    pdf_filename = f"formular_{form_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-    export_to_pdf(data, form_title=form_name, filename=pdf_filename)
+    export_to_pdf(data, form_title=form_name)
     
-    # Verifică dacă formularul conține câmp de email și trimite confirmare
-    has_email, email_field = has_email_field(fields)
+    email = extract_email_from_data(data, fields)
     email_sent = False
-    email_message = ""
     
-    if has_email and data.get(email_field):
-        recipient_email = data[email_field]
-        if recipient_email and '@' in recipient_email:
-            success, message = send_email_confirmation(
-                recipient_email, 
-                form_name, 
-                data, 
-                pdf_filename
+    if email:
+        try:
+            email_sent = send_confirmation_email(
+                email=email,
+                form_name=form_name,
+                user_data=data,
+                username=session['username']
             )
-            email_sent = success
-            email_message = message
             
-            if success:
-                flash(f"Email de confirmare trimis la {recipient_email}", "success")
+            if email_sent:
+                flash("Email de confirmare trimis cu succes!", "success")
             else:
-                flash(f"Eroare la trimiterea email-ului: {message}", "error")
+                flash("Formularul a fost salvat, dar emailul nu a putut fi trimis.", "warning")
+                
+        except Exception as e:
+            print(f"Eroare la trimiterea emailului: {str(e)}")
+            flash("Formularul a fost salvat, dar a apărut o eroare la trimiterea emailului.", "warning")
+    else:
+        flash("Formularul a fost salvat. Nu s-a găsit o adresă de email pentru confirmare.", "info")
     
-    return render_template("success.html", 
-                         email_sent=email_sent, 
-                         email_message=email_message,
-                         pdf_filename=pdf_filename)
+    return render_template("success.html", email_sent=email_sent, email=email)
 
 @app.route("/download")
 def download_pdf():
@@ -619,38 +600,66 @@ def view_statistics():
     stats = load_statistics()
     return render_template("statistics.html", statistics=stats)
 
-def load_smtp_config():
-    """Încarcă configurația SMTP din fișier"""
-    global SMTP_CONFIG
-    if os.path.exists('smtp_config.json'):
-        with open('smtp_config.json', 'r') as f:
-            SMTP_CONFIG.update(json.load(f))
+@app.route("/view-submissions")
+def view_submissions():
+    """Afișează toate înregistrările din baza de date (doar pentru admin)"""
+    if session.get('user_type') != 'admin':
+        flash("Nu aveți permisiuni pentru această acțiune!", "error")
+        return redirect("/")
+    
+    with get_db_connection() as conn:
+        submissions = conn.execute("""
+            SELECT id, username, form_name, submission_date 
+            FROM form_submissions 
+            ORDER BY submission_date DESC
+        """).fetchall()
+    
+    return render_template("view_submissions.html", submissions=submissions)
 
+@app.route("/view-submission/<int:submission_id>")
+def view_submission(submission_id):
+    """Afișează detaliile unei înregistrări (doar pentru admin)"""
+    if session.get('user_type') != 'admin':
+        flash("Nu aveți permisiuni pentru această acțiune!", "error")
+        return redirect("/")
+    
+    with get_db_connection() as conn:
+        submission = conn.execute(
+            "SELECT * FROM form_submissions WHERE id = ?",
+            (submission_id,)
+        ).fetchone()
+    
+    if not submission:
+        flash("Înregistrarea nu a fost găsită!", "error")
+        return redirect("/view-submissions")
+
+    submission_data = json.loads(submission['submission_data'])
+    
+    return render_template(
+        "view_submission_details.html",
+        submission=submission,
+        submission_data=submission_data
+    )
 def create_sample_forms():
     sample_forms = {
         "formular_rca.json": [
             {"name": "nume", "label": "Nume deținător", "type": "text", "required": True},
-            {"name": "email", "label": "Email", "type": "email", "required": True},
             {"name": "nr_inmatriculare", "label": "Număr de înmatriculare", "type": "text", "required": True},
             {"name": "marca", "label": "Marcă vehicul", "type": "text", "required": True},
             {"name": "data_start", "label": "Data începere asigurare", "type": "date", "required": True}
         ],
         "formular_inregistrare.json": [
             {"name": "nume_complet", "label": "Nume complet", "type": "text", "required": True},
-            {"name": "email", "label": "Email", "type": "email", "required": True},
             {"name": "cnp", "label": "CNP", "type": "text", "required": True},
             {"name": "adresa", "label": "Adresă", "type": "textarea", "required": True},
             {"name": "telefon", "label": "Telefon", "type": "tel", "required": False}
         ],
         "formular_cerere.json": [
-            {"name": "nume", "label": "Nume", "type": "text", "required": True},
-            {"name": "email", "label": "Email", "type": "email", "required": True},
             {"name": "tip_cerere", "label": "Tip cerere", "type": "text", "required": True},
             {"name": "descriere", "label": "Descriere cerere", "type": "textarea", "required": True},
             {"name": "data_cerere", "label": "Data cererii", "type": "date", "required": True}
         ],
         "formular_contact.json": [
-            {"name": "nume", "label": "Nume", "type": "text", "required": True},
             {"name": "email", "label": "Adresă email", "type": "email", "required": True},
             {"name": "mesaj", "label": "Mesaj", "type": "textarea", "required": True},
             {"name": "acord_gdpr", "label": "Sunt de acord cu prelucrarea datelor", "type": "checkbox", "required": True}
@@ -674,7 +683,6 @@ if __name__ == "__main__":
     if not os.path.exists(STATISTICS_FILE):
         save_statistics({})
     
-    # Încarcă configurația SMTP
-    load_smtp_config()
+    init_db()
     
     app.run(debug=True)
